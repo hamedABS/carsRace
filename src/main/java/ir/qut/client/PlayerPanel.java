@@ -3,15 +3,13 @@ package main.java.ir.qut.client;
 import main.java.ir.qut.server.BlockMovementResponsible;
 
 import javax.imageio.ImageIO;
+import javax.sql.DataSource;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionListener;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.Socket;
+import java.net.*;
 import java.util.*;
 import java.util.List;
 
@@ -29,7 +27,7 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
     private int mouseY;
     private boolean isCrashed = false;
     private boolean isUp = true;
-    private Label label;
+    private Label positionLabel;
     private Label scoreLabel;
     private Integer score = 0;
     private int speed = 50;
@@ -44,12 +42,12 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
     public PlayerPanel(int playerNumber) {
         this.playerNumber = playerNumber;
         init();
-        label = new Label("(" + mouseX + "," + mouseY + ")");
+        //positionLabel = new Label("(" + mouseX + "," + mouseY + ")");
         Label playerNumberLabel = new Label("p#:" + playerNumber);
         scoreLabel = new Label("score: 0", Label.RIGHT);
-        label.setAlignment(Label.CENTER);
+//        positionLabel.setAlignment(Label.CENTER);
         blockMovementResponsible = new BlockMovementResponsible(upRoadPositions, dowRoadPositions, isCrashed, speed, this);
-        this.add(label);
+//        this.add(positionLabel);
         this.add(scoreLabel);
         this.add(playerNumberLabel);
 
@@ -61,7 +59,8 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
                     speed = 50;
                 try {
                     blockMovementResponsible.setSpeed(speed);
-                    Thread.sleep(4000);
+                    //4000
+                    Thread.sleep(2000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -96,9 +95,6 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
                     PlayerPanel panel = (PlayerPanel) this.clone();
                     objectOutputStream.writeObject(panel);
                     objectOutputStream.reset();
-                   /* System.out.println("when serializing...");
-                    System.out.println("up blocks: " + panel.getUpRoadPositions());
-                    System.out.println("down blocks: " + panel.getDowRoadPositions());*/
                 }
             }
         } catch (IOException e) {
@@ -139,7 +135,7 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
             }
         });
 
-        this.addMouseMotionListener(new MouseMotionListener() {
+       /* this.addMouseMotionListener(new MouseMotionListener() {
             @Override
             public void mouseDragged(MouseEvent e) {
 
@@ -149,9 +145,9 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
             public void mouseMoved(MouseEvent e) {
                 mouseX = e.getX();
                 mouseY = e.getY();
-                label.setText("(" + mouseX + "," + mouseY + ")");
+                positionLabel.setText("(" + mouseX + "," + mouseY + ")");
             }
-        });
+        });*/
     }
 
     @Override
@@ -169,6 +165,7 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
             g.drawImage(car, carX, carY, 40, 40, this);
 
             Integer integer;
+            PlayerPanel playerPanel = this;
             for (int i = 0; i < upRoadPositions.size(); i++) {
                 integer = upRoadPositions.get(i);
                 if (integer < 10) {
@@ -178,15 +175,17 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
                     }
                 } else {
                     g.drawImage(image, integer, 22, 40, 40, this);
-                   /* if (integer >= carX && integer < 140 && isUp) {
+                    if (integer >= carX && integer < 140 && isUp) {
                         isCrashed = true;
                         blockMovementResponsible.setCrashed(isCrashed);
                         blockMovementResponsible.interrupt();
+
                         new Thread(() -> {
                             JOptionPane.showMessageDialog(null, "You Suck Buddy, try again!!");
-                            System.exit(1);
+                            JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
+                            topFrame.setVisible(false);
                         }).start();
-                    }*/
+                    }
 
                 }
             }
@@ -200,27 +199,23 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
                     }
                 } else {
                     g.drawImage(image, integer, 62, 40, 40, this);
-                    /*if (integer >= carX && integer < 140 && !isUp) {
+                    if (integer >= carX && integer < 140 && !isUp) {
                         isCrashed = true;
                         blockMovementResponsible.setCrashed(isCrashed);
                         blockMovementResponsible.interrupt();
                         new Thread(() -> {
                             JOptionPane.showMessageDialog(null, "You Suck Buddy, try again!!");
-                            System.exit(1);
+                            JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
+                            topFrame.setVisible(false);
+                            topFrame.dispose();
                         }).start();
-                    }*/
-
+                    }
                 }
-
             }
-
         } catch (IOException e) {
         }
     }
 
-    public Socket getObjectTransferSocket() {
-        return objectTransferSocket;
-    }
 
     public void setObjectTransferSocket(Socket objectTransferSocket) {
         this.objectTransferSocket = objectTransferSocket;
@@ -238,14 +233,40 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
 
         int playerNumber = 1;
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Create Player? y/n");
-        String next = scanner.next();
-        while (!next.equals("n")) {
-            createPlayer(playerNumber);
+        try {
+            DatagramSocket socket = new DatagramSocket();
+            byte[] buff;
             System.out.println("Create Player? y/n");
-            playerNumber++;
-            next = scanner.next();
+            String next = scanner.next();
+            DatagramPacket packet;
+            while (!next.equals("n")) {
+                if (playerNumber <= 4) {
+                    buff = "1".getBytes();
+                    packet = new DatagramPacket(buff, buff.length, InetAddress.getByName("localhost"), 8086);
+                    socket.send(packet);
+                    Thread.sleep(1000);
+                    createPlayer(playerNumber);
+                } else {
+                    buff = "2".getBytes();
+                    packet = new DatagramPacket(buff, buff.length, InetAddress.getByName("localhost"), 8086);
+                    socket.send(packet);
+                    Thread.sleep(1000);
+                    createViewer();
+                }
+                System.out.println("Create Player? y/n");
+                playerNumber++;
+                next = scanner.next();
+            }
+        } catch (SocketException e) {
+            e.printStackTrace();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+
     }
 
     private static void createPlayer(int playerNumber) {
@@ -253,8 +274,8 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
             JFrame frame = new JFrame("player");
             frame.setLayout(new GridLayout(5, 0));
             PlayerPanel mainPlayerPanel = new PlayerPanel(playerNumber);
+            mainPlayerPanel.setBackground(Color.lightGray);
             frame.add(mainPlayerPanel);
-            frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
             frame.setSize(950, 600);
             frame.setVisible(true);
             frame.setResizable(false);
@@ -297,15 +318,9 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
                                     }
                                     break;
                             }
-
-
-                        /*serializedPlayerPanel.repaint();
-                        System.out.println("up blocks: " + serializedPlayerPanel.getUpRoadPositions());
-                        System.out.println("down blocks: " + serializedPlayerPanel.getDowRoadPositions());
-                        System.out.println("-----");*/
                             frame.revalidate();
                             frame.repaint();
-                            Thread.sleep(300);
+                            Thread.sleep(1000);
                         } catch (IOException e) {
                             e.printStackTrace();
                         } catch (ClassNotFoundException e) {
@@ -324,6 +339,68 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
         }).start();
     }
 
+    private static void createViewer() {
+        new Thread(() -> {
+            JFrame frame = new JFrame("Game Viewer");
+            frame.setLayout(new GridLayout(5, 0));
+            frame.setSize(950, 600);
+            frame.setVisible(true);
+            frame.setResizable(false);
+            Socket objectTransferSocket;
+            try {
+                objectTransferSocket = new Socket("localhost", 8080);
+                new Thread(() -> {
+                    while (true) {
+                        try {
+                            ObjectInputStream objectInputStream = new ObjectInputStream(objectTransferSocket.getInputStream());
+                            PlayerPanel serializedPlayerPanel = (PlayerPanel) objectInputStream.readObject();
+                            PlayerPanel toAddToFramePlayerPanel = new PlayerPanel(serializedPlayerPanel.getPlayerNumber());
+                            toAddToFramePlayerPanel.carX = serializedPlayerPanel.carX;
+                            toAddToFramePlayerPanel.carY = serializedPlayerPanel.carY;
+                            toAddToFramePlayerPanel.dowRoadPositions = serializedPlayerPanel.dowRoadPositions;
+                            toAddToFramePlayerPanel.upRoadPositions = serializedPlayerPanel.upRoadPositions;
+                            toAddToFramePlayerPanel.isCrashed = serializedPlayerPanel.isCrashed;
+                            List<Component> components = Arrays.asList(frame.getContentPane().getComponents());
+                            int index = 0;
+
+                            for (int i = 0; i < frame.getContentPane().getComponentCount(); i++) {
+                                if (frame.getContentPane().getComponent(i).equals(toAddToFramePlayerPanel)) {
+                                    index = i;
+                                }
+                            }
+
+                            switch (toAddToFramePlayerPanel.playerNumber) {
+                                case 1:
+                                case 2:
+                                case 3:
+                                case 4:
+                                    if (components.contains(toAddToFramePlayerPanel)) {
+                                        frame.getContentPane().remove(index);
+                                        frame.getContentPane().add(toAddToFramePlayerPanel, index);
+                                    } else {
+                                        frame.getContentPane().add(toAddToFramePlayerPanel);
+                                    }
+                                    break;
+                            }
+                            frame.revalidate();
+                            frame.repaint();
+                            Thread.sleep(1000);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        } catch (ClassNotFoundException e) {
+                            e.printStackTrace();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }).start();
+                // the right place, don't suspect!
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -335,22 +412,6 @@ public class PlayerPanel extends JPanel implements Serializable, Cloneable {
     @Override
     public int hashCode() {
         return Objects.hash(playerNumber);
-    }
-
-    public List<Integer> getUpRoadPositions() {
-        return upRoadPositions;
-    }
-
-    public void setUpRoadPositions(List<Integer> upRoadPositions) {
-        this.upRoadPositions = upRoadPositions;
-    }
-
-    public List<Integer> getDowRoadPositions() {
-        return dowRoadPositions;
-    }
-
-    public void setDowRoadPositions(List<Integer> dowRoadPositions) {
-        this.dowRoadPositions = dowRoadPositions;
     }
 
 }
